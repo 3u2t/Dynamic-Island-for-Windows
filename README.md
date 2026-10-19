@@ -120,6 +120,7 @@ Found a bug? Have a cool feature idea? We want to hear from you! Please drop an 
 - **[thevioletto @GitHub](https://github.com/thevioletto)**: Added custom font support, Windows Do Not Disturb integration and status alerts, improved album art color extraction, reorganized settings into logical categories, and fixed various UI, media, and theme edge cases.
 - **[David Ravelo (DavidRaveloU) @GitHub](https://github.com/DavidRaveloU)**: Added selectable audio spectrum styles with a live frequency analyzer, new progress bar styles, optional track-change animations for the title, cover flip, playback controls and pill cover spin, an optional clock in the collapsed media pill, and a brightness slider flyout.
 - **[Retr0dev-jpg @GitHub](https://github.com/Retr0dev-jpg)**: Event-driven volume flyout with animated bar and default device switching, plus a calendar that follows the Windows locale for weekday initials and first day of the week (with a Monday/Sunday override).
+- **[3u2t @GitHub](https://github.com/3u2t)**: Fixed the low-volume waveform and spectrum response, made the volume flyout refresh immediately, moved Quick Lookup to Ctrl+Alt+Q, and kept collapsed lyrics compact when lyrics are missing or playback is paused.
 
 ---
 
