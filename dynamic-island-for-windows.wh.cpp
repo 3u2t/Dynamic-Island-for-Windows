@@ -50,7 +50,7 @@ The Dynamic Island intelligently expands to display context-aware dashboards. Yo
 - **Translucent Backgrounds:** Hex colors accept an alpha channel (`#RRGGBBAA`), so you can make the island see-through while keeping text and icons perfectly crisp.
 - **Your Language:** The island's own labels follow your Windows display language across 12 languages, or you can pick one explicitly.
 - **File Tray:** Drag any file onto the island to park it on a shelf, then click to open it. You can now drag files back out into any folder or app, and remove them one by one. The island itself only references files, it never copies or moves them.
-- **Lyrics on the Collapsed Island:** Switch on "Show lyrics on collapsed island" from the right-click menu and the pill widens to show the current line as it's sung, sliding in with every new line. When no synced lyrics are available the pill stays compact and shows nothing in the lyrics slot.
+- **Lyrics on the Collapsed Island:** Switch on "Show lyrics on collapsed island" from the right-click menu and the pill widens to show the current line as it's sung, sliding in with every new line. When no synced lyrics are available, or playback is paused, the pill stays compact and shows nothing in the lyrics slot.
 - **Quick Lookup:** Press **Ctrl+Alt+Q** to open a search box right on the island. Type a word or phrase, press Enter, and get a definition or a short summary. Your clipboard text and recent searches are one click away.
 - **Lyrics Sync Offset:** Nudge lyric timing in milliseconds when lyrics feel early or late, with a separate value for Bluetooth audio output that is picked automatically from your default audio device. Set it in Mod Settings or from the right-click menu's "Lyrics sync" submenu.
 - **Typography & Clock Control:** Scale all island text independently of the island's size, choose 12- or 24-hour time, show seconds, and set a custom date pattern — including CJK forms like `yyyy年MM月dd日`.
@@ -61,7 +61,7 @@ The Dynamic Island intelligently expands to display context-aware dashboards. Yo
 
 - **Hover & Scroll:** Hover over the island to seamlessly expand it. Use your mouse scroll wheel to swipe between the Media, Calendar, Weather, Hardware Monitor, File Tray, and Lyrics tabs.
 - **File Tray:** Enable the File Tray module, then drag files onto the island. It jumps to the shelf to confirm the drop. Click a row to open that file, drag a row out to drop the file into any folder or app, or press the small ✕ on a row to remove just that file. The bin button in the header clears the whole shelf.
-- **Lyrics on the Collapsed Island:** Right-click the island and tick "Show lyrics on collapsed island". This choice is remembered across restarts. Long lines pan across as they are sung.
+- **Lyrics on the Collapsed Island:** Right-click the island and tick "Show lyrics on collapsed island". This choice is remembered across restarts. Long lines pan across as they are sung, and the line disappears while playback is paused.
 - **Cross-Source Media Switching:** If multiple apps are playing media at the same time, you can smoothly swap between their active playback controls directly from the island without opening the apps.
 - **Quick Lookup:** Press the hotkey (default **Ctrl+Alt+Q**, changeable in the **Shortcuts** tab) to open the search box. Type a word or phrase and press Enter. Up/Down picks a row and Esc closes it. With an empty box it suggests your clipboard text and your recent lookups. Results come from Wiktionary and Wikipedia, with dictionaryapi.dev as a backup. Nothing is sent anywhere until you press Enter, and recent lookups are kept in memory only. Turn it off under Modules > "Quick Lookup (hotkey)".
 - **Right-Click Menu:** Right-click the island to access Theme presets, Transparency settings, collapsed-island lyrics, and to pin the island open.
@@ -11448,7 +11448,7 @@ bool CollapsedLyricsUsable(const SharedState& state) {
 
 bool CollapsedLyricsActive(const SharedState& state, const Settings& settings) {
     return settings.collapsedLyrics && settings.media && state.media.available &&
-           CollapsedLyricsUsable(state);
+           state.media.playing && CollapsedLyricsUsable(state);
 }
 // One pre-built lyric line. Built once when the line changes, then reused every
 // frame, so animating it costs a DrawTextLayout and nothing else.
