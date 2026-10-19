@@ -6232,11 +6232,10 @@ struct SpectrumAnalyzer {
             peak = std::max(peak, amp);
         }
         agc = std::max(peak, agc * 0.9985f);
-        const float norm = 1.0f / std::max(agc, 0.02f);
+        const float norm = 1.0f / std::max(agc, 0.002f);
+        const float presence = Clamp((peak - 0.0005f) / 0.003f, 0.0f, 1.0f);
         for (int b = 0; b < kSpectrumBands; ++b) {
-            float v = std::sqrt(Clamp(raw[b] * norm, 0.0f, 1.0f));
-            // Silence must stay silent even though the auto-gain is boosted.
-            v *= Clamp(peak * 40.0f, 0.0f, 1.0f);
+            const float v = std::sqrt(Clamp(raw[b] * norm, 0.0f, 1.0f)) * presence;
             smooth[b] += (v > smooth[b] ? 0.65f : 0.14f) * (v - smooth[b]);
         }
     }
@@ -6301,8 +6300,16 @@ void DecayAndPublishSpectrum() {
     }
 }
 
+float g_waveformPeak = 0.005f;
+
 void PushWaveformSample(float amplitude) {
     std::lock_guard lock(g_stateMutex);
+
+    amplitude = Clamp(amplitude, 0.0f, 1.0f);
+    g_waveformPeak = amplitude > g_waveformPeak ? amplitude
+                                                : std::max(0.005f, g_waveformPeak * 0.9995f);
+    const float gate = Clamp((amplitude - 0.001f) / 0.01f, 0.0f, 1.0f);
+    amplitude = gate * Clamp(amplitude / g_waveformPeak, 0.0f, 1.0f);
 
     float lastVal = 0.0f;
     if (g_state.waveformWrite > 0) {
@@ -8376,6 +8383,10 @@ void ApplyVolumeReading(float level, bool muted, bool canSurface) {
             g_state.volume.deviceName = L"System audio";
             g_state.volume.expiresAt = NowSeconds() + 1.8;
         }
+    }
+
+    if (HWND hwnd = g_hwnd) {
+        PostMessageW(hwnd, WM_NULL, 0, 0);
     }
 
     // Only the first step nudges; nudging on every step made the pill bounce.
