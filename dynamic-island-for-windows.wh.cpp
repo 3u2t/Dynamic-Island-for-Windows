@@ -11467,7 +11467,6 @@ struct CollapsedLyricLine {
     ComPtr<IDWriteTextLayout> layout;
     float width = 0.0f;
     float height = 0.0f;
-    bool isTitle = false;  // true when this is the media-title fallback, not a lyric line
 };
 
 class Renderer {
@@ -16356,7 +16355,6 @@ class Renderer {
         out.layout.Reset();
         out.width = 0.0f;
         out.height = 0.0f;
-        out.isTitle = false;
         if (!dwriteFactory_ || text.empty()) {
             return;
         }
@@ -16664,7 +16662,6 @@ class Renderer {
                 ? lines[idx].text
                 : std::wstring(L"\u266A");
             BuildCollapsedLyricLine(collapsedLyricCur_, text, fmt);
-            collapsedLyricCur_.isTitle = false;
         }
         if (!collapsedLyricCur_.layout) {
             return;
@@ -16686,8 +16683,8 @@ class Renderer {
             float x = area.left;
             if (p.width <= availW) {
                 x = area.left + (availW - p.width) * 0.5f;
-            } else if (!p.isTitle) {
-                x = area.left - (p.width - availW);  // lyric rests at its panned end
+            } else {
+                x = area.left - (p.width - availW);
             }
             const float y = cy - p.height * 0.5f - e * kSlidePx;
             textBrush_->SetOpacity(alpha * (1.0f - Clamp(t * 1.6f, 0.0f, 1.0f)) * 0.9f);
@@ -16698,38 +16695,26 @@ class Renderer {
         // Incoming / current line.
         {
             const CollapsedLyricLine& c = collapsedLyricCur_;
-            float x = area.left + (availW - c.width) * 0.5f;  // centred when it fits
+            float x = area.left + (availW - c.width) * 0.5f;
             const float overflow = c.width - availW;
-            float titleCycle = 0.0f;  // > 0 only when the title is scrolling as a marquee
-            if (overflow > 0.0f) {
-                if (c.isTitle) {
-                    // Long title: scroll it in a loop, like the other marquees.
-                    titleCycle = c.width + 38.0f;
-                    x = area.left - std::fmod(static_cast<float>(now) * 30.0f, titleCycle);
-                } else if (idx >= 0) {
-                    // Long lyric: start at the left edge and pan across as it is sung.
-                    const int64_t startMs = lines[idx].timeMs;
-                    int64_t endMs = startMs + 4000;
-                    if (idx + 1 < static_cast<int>(lines.size())) {
-                        endMs = lines[idx + 1].timeMs;
-                    } else if (state.media.endTicks > 0) {
-                        endMs = state.media.endTicks / 10000;
-                    }
-                    const int64_t span = endMs - startMs;
-                    const float prog = span > 0
-                        ? Clamp(static_cast<float>(posMs - startMs) / static_cast<float>(span), 0.0f, 1.0f)
-                        : 1.0f;
-                    x = area.left - overflow * SmoothStep01((prog - 0.12f) / 0.70f);
+            if (overflow > 0.0f && idx >= 0) {
+                const int64_t startMs = lines[idx].timeMs;
+                int64_t endMs = startMs + 4000;
+                if (idx + 1 < static_cast<int>(lines.size())) {
+                    endMs = lines[idx + 1].timeMs;
+                } else if (state.media.endTicks > 0) {
+                    endMs = state.media.endTicks / 10000;
                 }
+                const int64_t span = endMs - startMs;
+                const float prog = span > 0
+                    ? Clamp(static_cast<float>(posMs - startMs) / static_cast<float>(span), 0.0f, 1.0f)
+                    : 1.0f;
+                x = area.left - overflow * SmoothStep01((prog - 0.12f) / 0.70f);
             }
             const float y = cy - c.height * 0.5f + (1.0f - e) * kSlidePx;
-            textBrush_->SetOpacity(alpha * e * (c.isTitle ? 0.90f : 0.97f));
+            textBrush_->SetOpacity(alpha * e * 0.97f);
             target_->DrawTextLayout(D2D1::Point2F(x, y), c.layout.Get(), textBrush_.Get(),
                                     D2D1_DRAW_TEXT_OPTIONS_NONE);
-            if (titleCycle > 0.0f) {
-                target_->DrawTextLayout(D2D1::Point2F(x + titleCycle, y), c.layout.Get(),
-                                        textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
-            }
         }
 
         target_->PopAxisAlignedClip();
