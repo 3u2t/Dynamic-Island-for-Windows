@@ -45,7 +45,7 @@ A smooth, interactive overlay for your desktop, inspired by Apple's Dynamic Isla
 **🚀 New Features (Added in Latest Update):**
 
 - 🎤 **Live Lyrics:** Switch on "Show lyrics on collapsed island" from the right-click menu to see the current line pan across the pill as it is sung.
-- 📖 **Quick Lookup:** Press `Ctrl+Alt+Space` to open a search box right on the island to instantly find definitions or summaries for words and clipboard text.
+- 📖 **Quick Lookup:** Press `Ctrl+Alt+Q` to open a search box right on the island to instantly find definitions or summaries for words and clipboard text.
 - 🔀 **Cross-Source Media Switching:** Smoothly swap between active playback controls of multiple media apps simultaneously without opening the apps.
 - 💾 **Lyrics Cache:** Fast, local, and completely private caching of lyrics (via LRCLIB) to ensure instant loading with a tiny disk footprint.
 - 📺 **Full-Screen Autohide:** Smart autohide ensures the island stays completely out of your way during full-screen apps, videos, and gaming.
