@@ -50,7 +50,7 @@ The Dynamic Island intelligently expands to display context-aware dashboards. Yo
 - **Translucent Backgrounds:** Hex colors accept an alpha channel (`#RRGGBBAA`), so you can make the island see-through while keeping text and icons perfectly crisp.
 - **Your Language:** The island's own labels follow your Windows display language across 12 languages, or you can pick one explicitly.
 - **File Tray:** Drag any file onto the island to park it on a shelf, then click to open it. You can now drag files back out into any folder or app, and remove them one by one. The island itself only references files, it never copies or moves them.
-- **Lyrics on the Collapsed Island:** Switch on "Show lyrics on collapsed island" from the right-click menu and the pill widens to show the current line as it's sung, sliding in with every new line. When no synced lyrics are available, or playback is paused, the pill stays compact and shows nothing in the lyrics slot.
+- **Lyrics on the Collapsed Island:** Switch on "Show lyrics on collapsed island" from the right-click menu and the pill widens to show the current line as it's sung, sliding in with every new line. When no synced lyrics are available, or playback is paused, the pill stays compact by default; turn on "Show title when lyrics are missing" in Mod Settings to show the track title instead while lyrics are unavailable.
 - **Quick Lookup:** Press **Ctrl+Alt+Q** to open a search box right on the island. Type a word or phrase, press Enter, and get a definition or a short summary. Your clipboard text and recent searches are one click away.
 - **Lyrics Sync Offset:** Nudge lyric timing in milliseconds when lyrics feel early or late, with a separate value for Bluetooth audio output that is picked automatically from your default audio device. Set it in Mod Settings or from the right-click menu's "Lyrics sync" submenu.
 - **Typography & Clock Control:** Scale all island text independently of the island's size, choose 12- or 24-hour time, show seconds, and set a custom date pattern — including CJK forms like `yyyy年MM月dd日`.
@@ -61,7 +61,7 @@ The Dynamic Island intelligently expands to display context-aware dashboards. Yo
 
 - **Hover & Scroll:** Hover over the island to seamlessly expand it. Use your mouse scroll wheel to swipe between the Media, Calendar, Weather, Hardware Monitor, File Tray, and Lyrics tabs.
 - **File Tray:** Enable the File Tray module, then drag files onto the island. It jumps to the shelf to confirm the drop. Click a row to open that file, drag a row out to drop the file into any folder or app, or press the small ✕ on a row to remove just that file. The bin button in the header clears the whole shelf.
-- **Lyrics on the Collapsed Island:** Right-click the island and tick "Show lyrics on collapsed island". This choice is remembered across restarts. Long lines pan across as they are sung, and the line disappears while playback is paused.
+- **Lyrics on the Collapsed Island:** Right-click the island and tick "Show lyrics on collapsed island". This choice is remembered across restarts. Long lines pan across as they are sung, and the line disappears while playback is paused. "Show title when lyrics are missing" in Mod Settings brings back the track title when no synced lyrics are available.
 - **Cross-Source Media Switching:** If multiple apps are playing media at the same time, you can smoothly swap between their active playback controls directly from the island without opening the apps.
 - **Quick Lookup:** Press the hotkey (default **Ctrl+Alt+Q**, changeable in the **Shortcuts** tab) to open the search box. Type a word or phrase and press Enter. Up/Down picks a row and Esc closes it. With an empty box it suggests your clipboard text and your recent lookups. Results come from Wiktionary and Wikipedia, with dictionaryapi.dev as a backup. Nothing is sent anywhere until you press Enter, and recent lookups are kept in memory only. Turn it off under Modules > "Quick Lookup (hotkey)".
 - **Right-Click Menu:** Right-click the island to access Theme presets, Transparency settings, collapsed-island lyrics, and to pin the island open.
@@ -443,6 +443,9 @@ We love community contributions! To ensure high-quality updates, please follow t
   - LyricsNeighborLinesVisible: false
     $name: Show neighboring lyric lines clearly
     $description: By default the lines above and below the active line are only a faint ghost. Turn this on to make them clearly readable.
+  - CollapsedLyricsTitle: false
+    $name: Show title when lyrics are missing
+    $description: When "Show lyrics on collapsed island" is on and the current track has no synced lyrics, show the track title instead of leaving the slot empty. The slot still hides while playback is paused.
   - LyricsCache: true
     $name: Lyrics cache (disk)
     $description: Instant lyrics, less load on LRCLIB, tiny disk use, clearable anytime. Stored in %LOCALAPPDATA%\DynamicIslandForWindows\lyrics. Turn off to stop all lyrics disk reads and writes.
@@ -1187,6 +1190,7 @@ struct Settings {
     int lyricsOffsetMs = 0;      // Modules.LyricsOffsetMs, speakers / wired, ms
     int lyricsOffsetBtMs = 0;    // Modules.LyricsOffsetBluetoothMs, Bluetooth output, ms
     bool collapsedLyrics = false;  // lyrics inside the collapsed media pill (right-click toggle)
+    bool collapsedLyricsTitle = false;
     bool lyricsPinnedFirst = false;  // Lyrics tab is the first tab of the expanded media view (right-click toggle)
     bool lyricsCache = true;       // Modules.LyricsCache
     int lyricsCacheMaxMB = 25;     // Modules.LyricsCacheMaxMB; 0 = disk cache off
@@ -3071,6 +3075,7 @@ void LoadSettings() {
     next.expandOnHover = localExpandOnHover >= 0 ? (localExpandOnHover != 0) : (Wh_GetIntSetting(L"Behavior.ExpandOnHover") != 0);
     // Right-click toggle; stored with Wh_SetIntValue so it survives restarts.
     next.collapsedLyrics = Wh_GetIntValue(L"CollapsedLyrics", 0) != 0;
+    next.collapsedLyricsTitle = Wh_GetIntSetting(L"Modules.CollapsedLyricsTitle") != 0;
     next.lyricsPinnedFirst = Wh_GetIntValue(L"LyricsPinnedFirst", 0) != 0;
     {
         // Right-click choice wins until the Mod Settings value is changed.
@@ -11459,7 +11464,8 @@ bool CollapsedLyricsUsable(const SharedState& state) {
 
 bool CollapsedLyricsActive(const SharedState& state, const Settings& settings) {
     return settings.collapsedLyrics && settings.media && state.media.available &&
-           state.media.playing && CollapsedLyricsUsable(state);
+           state.media.playing &&
+           (CollapsedLyricsUsable(state) || settings.collapsedLyricsTitle);
 }
 // One pre-built lyric line. Built once when the line changes, then reused every
 // frame, so animating it costs a DrawTextLayout and nothing else.
@@ -11468,6 +11474,7 @@ struct CollapsedLyricLine {
     ComPtr<IDWriteTextLayout> layout;
     float width = 0.0f;
     float height = 0.0f;
+    bool isTitle = false;
 };
 
 class Renderer {
@@ -15861,7 +15868,7 @@ class Renderer {
                 if (lyricsAlpha > 0.01f) {
                     const float textLeft = artRect.right + 10.0f;
                     const float textRight = waveRect.left - 10.0f;
-                    DrawCollapsedLyrics(state,
+                    DrawCollapsedLyrics(state, settings,
                                         D2D1::RectF(textLeft, rect.top + 4.0f, textRight, rect.bottom - 4.0f),
                                         now, lyricsAlpha);
                 }
@@ -16604,7 +16611,7 @@ class Renderer {
 
     // Draws the current synced lyric line inside `area`. When the line changes,
     // the old one slides up and fades out while the new one rises in from below.
-    void DrawCollapsedLyrics(const SharedState& state, D2D1_RECT_F area, double now, float alpha) {
+    void DrawCollapsedLyrics(const SharedState& state, const Settings& settings, D2D1_RECT_F area, double now, float alpha) {
         IDWriteTextFormat* fmt = textFormat_.Get();
         if (!fmt || !dwriteFactory_ || alpha <= 0.01f) {
             return;
@@ -16616,13 +16623,14 @@ class Renderer {
 
         const auto& lines = state.lyrics.lines;
 
-        if (!CollapsedLyricsUsable(state)) {
+        const bool lyricsUsable = CollapsedLyricsUsable(state);
+        if (!lyricsUsable && !settings.collapsedLyricsTitle) {
             return;
         }
 
         int idx = -1;
         int64_t posMs = 0;
-        {
+        if (lyricsUsable) {
             double posSec = state.media.positionTicks / 10000000.0;
             if (state.media.playing && state.media.lastUpdatedTicks > 0) {
                 posSec += (GetTickCount64() - state.media.lastUpdatedTicks) / 1000.0;
@@ -16645,9 +16653,18 @@ class Renderer {
             idx = lo - 1;
         }
 
+        constexpr int kTitleKey = -3;
+        const bool showTitle = !lyricsUsable;
+        const int showIdx = showTitle ? kTitleKey : idx;
+
+        std::wstring fallback = state.media.title;
+        if (fallback.empty()) fallback = state.media.sourceName;
+        if (fallback.empty()) fallback = Loc(L"Media");
+
         const bool trackChanged = state.media.title != collapsedLyricTitle_ ||
                                   state.media.artist != collapsedLyricArtist_;
-        if (trackChanged || idx != collapsedLyricIdx_) {
+        const bool fallbackTextChanged = showTitle && collapsedLyricCur_.text != fallback;
+        if (trackChanged || showIdx != collapsedLyricIdx_ || fallbackTextChanged) {
             if (trackChanged || collapsedLyricIdx_ == -2) {
                 collapsedLyricPrev_ = CollapsedLyricLine{};
                 collapsedLyricAnimStart_ = now - 10.0;
@@ -16657,12 +16674,14 @@ class Renderer {
             }
             collapsedLyricTitle_ = state.media.title;
             collapsedLyricArtist_ = state.media.artist;
-            collapsedLyricIdx_ = idx;
+            collapsedLyricIdx_ = showIdx;
 
-            const std::wstring text = (idx >= 0 && !lines[idx].text.empty())
-                ? lines[idx].text
-                : std::wstring(L"\u266A");
+            const std::wstring text = showTitle
+                ? fallback
+                : ((idx >= 0 && !lines[idx].text.empty()) ? lines[idx].text
+                                                          : std::wstring(L"\u266A"));
             BuildCollapsedLyricLine(collapsedLyricCur_, text, fmt);
+            collapsedLyricCur_.isTitle = showTitle;
         }
         if (!collapsedLyricCur_.layout) {
             return;
@@ -16684,7 +16703,7 @@ class Renderer {
             float x = area.left;
             if (p.width <= availW) {
                 x = area.left + (availW - p.width) * 0.5f;
-            } else {
+            } else if (!p.isTitle) {
                 x = area.left - (p.width - availW);
             }
             const float y = cy - p.height * 0.5f - e * kSlidePx;
@@ -16698,24 +16717,34 @@ class Renderer {
             const CollapsedLyricLine& c = collapsedLyricCur_;
             float x = area.left + (availW - c.width) * 0.5f;
             const float overflow = c.width - availW;
-            if (overflow > 0.0f && idx >= 0) {
-                const int64_t startMs = lines[idx].timeMs;
-                int64_t endMs = startMs + 4000;
-                if (idx + 1 < static_cast<int>(lines.size())) {
-                    endMs = lines[idx + 1].timeMs;
-                } else if (state.media.endTicks > 0) {
-                    endMs = state.media.endTicks / 10000;
+            float titleCycle = 0.0f;
+            if (overflow > 0.0f) {
+                if (c.isTitle) {
+                    titleCycle = c.width + 38.0f;
+                    x = area.left - std::fmod(static_cast<float>(now) * 30.0f, titleCycle);
+                } else if (idx >= 0) {
+                    const int64_t startMs = lines[idx].timeMs;
+                    int64_t endMs = startMs + 4000;
+                    if (idx + 1 < static_cast<int>(lines.size())) {
+                        endMs = lines[idx + 1].timeMs;
+                    } else if (state.media.endTicks > 0) {
+                        endMs = state.media.endTicks / 10000;
+                    }
+                    const int64_t span = endMs - startMs;
+                    const float prog = span > 0
+                        ? Clamp(static_cast<float>(posMs - startMs) / static_cast<float>(span), 0.0f, 1.0f)
+                        : 1.0f;
+                    x = area.left - overflow * SmoothStep01((prog - 0.12f) / 0.70f);
                 }
-                const int64_t span = endMs - startMs;
-                const float prog = span > 0
-                    ? Clamp(static_cast<float>(posMs - startMs) / static_cast<float>(span), 0.0f, 1.0f)
-                    : 1.0f;
-                x = area.left - overflow * SmoothStep01((prog - 0.12f) / 0.70f);
             }
             const float y = cy - c.height * 0.5f + (1.0f - e) * kSlidePx;
-            textBrush_->SetOpacity(alpha * e * 0.97f);
+            textBrush_->SetOpacity(alpha * e * (c.isTitle ? 0.90f : 0.97f));
             target_->DrawTextLayout(D2D1::Point2F(x, y), c.layout.Get(), textBrush_.Get(),
                                     D2D1_DRAW_TEXT_OPTIONS_NONE);
+            if (titleCycle > 0.0f) {
+                target_->DrawTextLayout(D2D1::Point2F(x + titleCycle, y), c.layout.Get(),
+                                        textBrush_.Get(), D2D1_DRAW_TEXT_OPTIONS_NONE);
+            }
         }
 
         target_->PopAxisAlignedClip();
