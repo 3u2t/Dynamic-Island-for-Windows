@@ -46,7 +46,7 @@ The Dynamic Island intelligently expands to display context-aware dashboards. Yo
 - **360Hz+ Dynamic Fluid Animations:** Ultra-smooth resizing and splitting with native support for high refresh rate monitors (up to 360Hz/500Hz+) and zero idle CPU drain.
 - **Eight Curated Themes:** Obsidian, Graphite, Slate, Nord, Evergreen, Espresso, Plum and a light Porcelain, all switchable from the right-click menu's Theme submenu — or dial in your exact hex colors.
 - **Clean Flat Material:** Surfaces are built from soft downward depth shading, a drop shadow, and an accent wash tinted live from your album art. No rim lighting, no glass highlights, no outlined cards — nothing traces a bright line along an edge.
-- **Real Blur & Acrylic Backdrop:** Optionally paint genuine Windows blur or frosted acrylic behind the island so your desktop shows through it, exactly like the system's own surfaces.
+- **Real Blur & Acrylic Backdrop:** Optionally paint genuine Windows blur or frosted acrylic behind the island so your desktop shows through it, exactly like the system's own surfaces. Requires Windows' **Transparency effects** to be turned on (see Usage & Settings below).
 - **Translucent Backgrounds:** Hex colors accept an alpha channel (`#RRGGBBAA`), so you can make the island see-through while keeping text and icons perfectly crisp.
 - **Your Language:** The island's own labels follow your Windows display language across 12 languages, or you can pick one explicitly.
 - **File Tray:** Drag any file onto the island to park it on a shelf, then click to open it. You can now drag files back out into any folder or app, and remove them one by one. The island itself only references files, it never copies or moves them.
@@ -67,6 +67,7 @@ The Dynamic Island intelligently expands to display context-aware dashboards. Yo
 - **Right-Click Menu:** Right-click the island to access Theme presets, Transparency settings, collapsed-island lyrics, and to pin the island open.
 - **⚠️ Right-click choices are per-session:** The right-click menu is a quick way to try things out, not a place to configure the mod. **Theme**, **shape style** (Pill / Notch / Windows 11) and **pin open** are all re-applied from your Windhawk settings whenever the mod restarts — so a reboot, a mod update, or toggling the mod off and on will discard them. Anything you want to keep, set in the **Mod Settings** tab instead. (Transparency and Expand-on-hover do persist, but the settings tab is still the reliable place for them.)
 - **Windhawk Settings:** Visit the Mod Settings tab to change the island's Position, Size Scale, Refresh Rate (Target FPS), Animation Style (Smooth/Default/Bouncy/Snappy), Animation Speed, and toggle specific modules. You can also perfectly align the island using the `Offset X` and `Offset Y` settings, and select exactly which monitor the island should appear on (including a "Follow Mouse" mode!).
+- **Blur & Acrylic need Transparency effects:** Windows does not enable this by default on every PC, and the Blur and Acrylic backdrop will not show without it (you will only see a flat tint instead). Turn it on in **Settings > Personalization > Colors > Transparency effects** (on Windows 11 you can also find it under **Settings > Accessibility > Visual effects > Transparency effects**). Also make sure **Battery saver** is off, because it disables these effects too. Then pick a material under **Mod Settings > Themes > Backdrop material**; the change applies live, no restart needed.
 - **Notifications:** Windows must allow apps to read notifications: turn on **Settings > Privacy & security > Notifications > "Let apps access your notifications"**. Without that permission Windows denies the listener and the module stays silent. Nothing needs to be added to the process inclusion list; the island runs in its own process and reads notifications from there.
 - **Quick Hide/Show:** Right-click the island and choose "Hide Island" to collapse it completely — CPU usage drops to ~0% while hidden since the mod fully parks its render thread. Bring it back instantly with the configurable hotkey (default **Ctrl+Alt+D**, changeable in the **Shortcuts** settings tab). Because a hidden island can't be right-clicked, the hotkey is the *only* way back once hidden — if you turn the hotkey off while hidden, re-enable it (or disable the mod) from Windhawk's settings.
 
@@ -272,7 +273,7 @@ We love community contributions! To ensure high-quality updates, please follow t
     $description: 0 to 100. Controls how dark the background tint behind the island is.
   - BackdropMaterial: none
     $name: Backdrop material (real Windows blur)
-    $description: Paints genuine Windows blur or acrylic behind the island so your desktop and windows show through it. Acrylic adds the frosted noise texture Windows uses for its own surfaces. Requires Windows 10 1803 or newer; on unsupported builds the island simply stays opaque. When this is on, use Backdrop fill opacity below to control how much of the blur comes through.
+    $description: Paints genuine Windows blur or acrylic behind the island so your desktop and windows show through it, using the same effect the system uses for its own surfaces. Acrylic adds Windows' frosted grain and a tint of your background colour (see Acrylic tint strength). Requires Windows 10 1803 or newer, and Windows' Transparency effects must be turned ON (Settings > Personalization > Colors > Transparency effects, or on Windows 11 also Settings > Accessibility > Visual effects). If it is off, or Battery saver is on, you will only see a flat tint with no blur. When this is on, use Backdrop fill opacity below to control how much of the blur comes through.
     $options:
       - none: Off (solid background)
       - blur: Blur
@@ -282,7 +283,7 @@ We love community contributions! To ensure high-quality updates, please follow t
     $description: 0 to 100. Only used when a Backdrop material is enabled. How opaque the island's own background stays on top of the blur - lower values let more of the blurred desktop through. Has no effect when the backdrop is Off.
   - BackdropTint: 55
     $name: Acrylic tint strength
-    $description: 0 to 100. Only used by the Acrylic backdrop. How strongly your background colour tints the frosted layer.
+    $description: 0 to 100. How strongly your background colour tints the backdrop. Acrylic uses the full strength; Blur uses a lighter wash of the same colour so the desktop stays readable.
   - MaterialDepth: true
     $name: Depth shading
     $description: Adds soft downward shading and the accent wash so the island has depth instead of looking like one flat fill. No edge highlights or rim lighting are involved. Turn off for a completely flat look.
@@ -2736,7 +2737,6 @@ D2D1_COLOR_F GetSystemAccentColor() {
 
 void ApplyHideShowHotkey();                 // forward declaration; defined after LoadSettings()
 void ApplyBackdropMaterial(HWND);           // forward declaration; defined after LoadSettings()
-void ApplyBackdropRegion(HWND, int, int);   // forward declaration; defined below PositionOverlayWindow
 void NotifyKeyboardThreadSettingChanged();  // forward declaration; defined with the keyboard hook
 
 void ApplyLookupHotkey();  // forward declaration; defined with Quick Lookup
@@ -3320,7 +3320,9 @@ void LoadSettings() {
             next.lookupVk != g_settings.lookupVk;
         backdropChanged =
             next.backdropMaterial != g_settings.backdropMaterial ||
-            std::fabs(next.backdropTint - g_settings.backdropTint) > 0.001f;
+            std::fabs(next.backdropTint - g_settings.backdropTint) > 0.001f ||
+            std::fabs(next.backdropFillAlpha - g_settings.backdropFillAlpha) > 0.001f ||
+            next.alwaysOnTop != g_settings.alwaysOnTop;
         g_settings = std::move(next);
     }
     g_layoutDirty = true;
@@ -3362,102 +3364,415 @@ void EnableBlurBehind(HWND hwnd) {
 }
 
 // ── Backdrop material (#59) ──────────────────────────────────────────────────
-// Real Windows blur/acrylic behind the island.
-//
-// This uses SetWindowCompositionAttribute, which is the same undocumented entry
-// point Windows' own shell surfaces use for acrylic. It is resolved dynamically
-// so the mod still loads cleanly on builds where it is absent, and every failure
-// path simply leaves the island fully opaque rather than breaking rendering.
-//
-// It composes with UpdateLayeredWindow: DWM blurs whatever is behind the window,
-// and the per-pixel alpha we paint decides how much of that blur shows through.
-// That is why enabling a backdrop also caps the pill's own fill alpha further
-// down -- an opaque fill would hide the very effect being switched on.
+// The blur / acrylic is composed by DWM (see DwmBackdrop); this namespace only holds
+// the screen-clip helpers the island yields to.
 namespace Backdrop {
 
-enum CompositionAttribute : int {
-    WCA_ACCENT_POLICY = 19,
-};
+// True while the foreground window belongs to the Snipping Tool / screen clip UI.
+bool ScreenClipUiActive() {
+    HWND fg = GetForegroundWindow();
+    if (!fg) return false;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(fg, &pid);
+    if (!pid) return false;
+    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!h) return false;
+    wchar_t path[MAX_PATH] = {};
+    DWORD n = MAX_PATH;
+    bool hit = false;
+    if (QueryFullProcessImageNameW(h, 0, path, &n)) {
+        const wchar_t* name = wcsrchr(path, L'\\');
+        name = name ? name + 1 : path;
+        hit = _wcsicmp(name, L"SnippingTool.exe") == 0 ||
+              _wcsicmp(name, L"ScreenClippingHost.exe") == 0;
+    }
+    CloseHandle(h);
+    return hit;
+}
 
-enum AccentState : int {
-    ACCENT_DISABLED = 0,
-    ACCENT_ENABLE_BLURBEHIND = 3,
-    ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
-};
-
-struct AccentPolicy {
-    AccentState state;
-    DWORD flags;
-    DWORD gradientColor;  // ABGR
-    DWORD animationId;
-};
-
-struct CompositionAttributeData {
-    CompositionAttribute attribute;
-    void* data;
-    SIZE_T dataSize;
-};
-
-using SetWindowCompositionAttributeFn = BOOL(WINAPI*)(HWND, CompositionAttributeData*);
-
-SetWindowCompositionAttributeFn Resolve() {
-    static SetWindowCompositionAttributeFn cached = [] {
-        // user32 is already loaded in-process; GetModuleHandle avoids taking a
-        // reference we would then have to release.
-        HMODULE user32 = GetModuleHandleW(L"user32.dll");
-        if (!user32) {
-            return static_cast<SetWindowCompositionAttributeFn>(nullptr);
-        }
-        return reinterpret_cast<SetWindowCompositionAttributeFn>(
-            GetProcAddress(user32, "SetWindowCompositionAttribute"));
-    }();
-    return cached;
+// While the Snipping Tool overlay is foreground the island must not raise or
+// show itself. Cached for 100 ms since this is checked every frame.
+bool ClipUiActiveCached() {
+    static std::atomic<ULONGLONG> lastCheck{0};
+    static std::atomic<bool> last{false};
+    const ULONGLONG now = GetTickCount64();
+    if (now - lastCheck.load() >= 100) {
+        last.store(ScreenClipUiActive());
+        lastCheck.store(now);
+    }
+    return last.load();
 }
 
 }  // namespace Backdrop
 
-void ApplyBackdropMaterial(HWND hwnd) {
-    if (!hwnd) {
+// ── DWM backdrop (#59) ───────────────────────────────────────────────────────
+// Real Windows blur / acrylic, composed by DWM on the GPU: the island never blurs
+// the desktop itself. The accent only applies to a non-layered window, so each pill
+// gets a mouse-transparent window just below the layered island, clipped to the
+// pill's rounded region with accent flag 0x10 so it does not spill past the corners.
+namespace DwmBackdrop {
+
+struct AccentPolicy {
+    int accentState;
+    int accentFlags;
+    DWORD gradientColor;  // ABGR: alpha = tint opacity
+    DWORD animationId;
+};
+
+struct CompositionAttribData {
+    int attrib;
+    PVOID data;
+    SIZE_T size;
+};
+
+using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, CompositionAttribData*);
+
+constexpr int kAccentDisabled = 0;
+constexpr int kAccentEnableBlurBehind = 3;
+constexpr int kAccentEnableAcrylicBlurBehind = 4;
+constexpr int kWcaAccentPolicy = 19;
+constexpr int kWcaTransitionsForcedisabled = 3;
+constexpr int kMaxPills = 2;  // split / combined layouts still use one silhouette each
+constexpr wchar_t kClassName[] = L"DynamicIslandBackdrop";
+
+struct Slot {
+    HWND hwnd = nullptr;
+    int x = 0, y = 0, w = 0, h = 0;  // last placed rect (screen px)
+    int radius = -1;                 // last region corner radius
+    int lift = -1;                   // last region top lift (notch: flat top)
+    bool visible = false;
+    bool topMost = false;
+    int accentState = -1;
+    DWORD accentColor = 0;
+};
+
+Slot g_slots[kMaxPills];
+SetWindowCompositionAttribute_t g_setWca = nullptr;
+bool g_resolved = false;
+bool g_supported = false;  // API present and Windows 10 1803 or newer
+bool g_classRegistered = false;
+
+// Last Sync signature so idle presents that redraw content skip SetWindowPos work.
+struct SyncFingerprint {
+    HWND island = nullptr;
+    POINT origin = {0, 0};
+    int count = 0;
+    int material = -1;
+    DWORD color = 0;
+    int state = -1;
+    bool notch = false;
+    int x[kMaxPills] = {};
+    int y[kMaxPills] = {};
+    int w[kMaxPills] = {};
+    int h[kMaxPills] = {};
+    int radius[kMaxPills] = {};
+    int lift[kMaxPills] = {};
+};
+SyncFingerprint g_lastSync = {};
+
+bool WindowsBuildAtLeast(DWORD build) {
+    using RtlGetVersion_t = LONG(WINAPI*)(OSVERSIONINFOW*);
+    HMODULE nt = GetModuleHandleW(L"ntdll.dll");
+    auto fn = nt ? reinterpret_cast<RtlGetVersion_t>(GetProcAddress(nt, "RtlGetVersion")) : nullptr;
+    if (!fn) return false;
+    OSVERSIONINFOW vi = {};
+    vi.dwOSVersionInfoSize = sizeof(vi);
+    return fn(&vi) == 0 && vi.dwBuildNumber >= build;
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_MOUSEACTIVATE:
+            return MA_NOACTIVATE;
+        case WM_NCHITTEST:
+            return HTTRANSPARENT;  // belt-and-braces with WS_EX_TRANSPARENT
+        case WM_ERASEBKGND:
+            return 1;  // accent owns the pixels; avoid GDI flash on show/resize
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+void Resolve() {
+    if (g_resolved) return;
+    g_resolved = true;
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    g_setWca = user32 ? reinterpret_cast<SetWindowCompositionAttribute_t>(
+                            GetProcAddress(user32, "SetWindowCompositionAttribute"))
+                      : nullptr;
+    g_supported = g_setWca && WindowsBuildAtLeast(17134);  // acrylic: 1803+
+}
+
+// False only on Windows too old for the accent; the island then keeps its solid fill.
+bool Available() {
+    Resolve();
+    return g_supported;
+}
+
+DWORD ColorToAccentAbgr(const D2D1_COLOR_F& tint, float tintAlpha) {
+    auto to8 = [](float v) {
+        return static_cast<DWORD>(std::clamp(static_cast<int>(std::lround(v * 255.0f)), 0, 255));
+    };
+    DWORD alpha = to8(tintAlpha);
+    if (alpha == 0) alpha = 1;  // acrylic rejects a fully transparent tint
+    return (alpha << 24) | (to8(tint.b) << 16) | (to8(tint.g) << 8) | to8(tint.r);
+}
+
+void DisableTransitions(HWND hwnd) {
+    BOOL disable = TRUE;
+    CompositionAttribData data = {kWcaTransitionsForcedisabled, &disable, sizeof(disable)};
+    g_setWca(hwnd, &data);
+}
+
+void ApplyAccent(Slot& s, int state, DWORD color) {
+    if (!s.hwnd || !g_setWca) return;
+    if (s.accentState == state && s.accentColor == color) return;
+    AccentPolicy policy = {};
+    policy.accentState = state;
+    policy.accentFlags = 0x10;  // clip the accent to the window region
+    policy.gradientColor = color;
+    CompositionAttribData data = {kWcaAccentPolicy, &policy, sizeof(policy)};
+    g_setWca(s.hwnd, &data);
+    s.accentState = state;
+    s.accentColor = color;
+}
+
+void ClearAccent(Slot& s) {
+    if (!s.hwnd || !g_setWca) {
+        s.accentState = -1;
+        s.accentColor = 0;
+        return;
+    }
+    if (s.accentState == kAccentDisabled) return;
+    AccentPolicy policy = {};
+    policy.accentState = kAccentDisabled;
+    CompositionAttribData data = {kWcaAccentPolicy, &policy, sizeof(policy)};
+    g_setWca(s.hwnd, &data);
+    s.accentState = kAccentDisabled;
+    s.accentColor = 0;
+}
+
+HWND CreateBackdropWindow(HWND owner) {
+    HINSTANCE inst = GetModuleHandleW(nullptr);
+    if (!g_classRegistered) {
+        WNDCLASSEXW wc = {};
+        wc.cbSize = sizeof(wc);
+        wc.lpfnWndProc = WndProc;
+        wc.hInstance = inst;
+        wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));  // black = clear for accent
+        wc.lpszClassName = kClassName;
+        if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+            return nullptr;
+        }
+        g_classRegistered = true;
+    }
+    // No WS_EX_LAYERED (it would kill the accent); WS_EX_TRANSPARENT passes the mouse.
+    // Owned by the island so lifetime/z-order stay coupled across reloads.
+    DWORD exStyle = WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT;
+    if (g_settings.alwaysOnTop) exStyle |= WS_EX_TOPMOST;
+    HWND hwnd = CreateWindowExW(exStyle, kClassName, L"", WS_POPUP, 0, 0, 16, 16, owner, nullptr,
+                                inst, nullptr);
+    if (!hwnd) return nullptr;
+    DisableTransitions(hwnd);
+    return hwnd;
+}
+
+void HideSlot(Slot& s) {
+    if (s.hwnd && s.visible) {
+        ClearAccent(s);  // drop GPU blur work while hidden
+        ShowWindow(s.hwnd, SW_HIDE);
+    }
+    s.visible = false;
+    // Force a fresh accent apply on the next show — DWM can drop it while hidden.
+    s.accentState = -1;
+}
+
+void HideAll() {
+    for (Slot& s : g_slots) HideSlot(s);
+    g_lastSync = {};
+}
+
+void DestroyAll() {
+    for (Slot& s : g_slots) {
+        if (s.hwnd && IsWindow(s.hwnd)) {
+            DestroyWindow(s.hwnd);
+        }
+        s = Slot{};
+    }
+    g_lastSync = {};
+    if (g_classRegistered) {
+        UnregisterClassW(kClassName, GetModuleHandleW(nullptr));
+        g_classRegistered = false;
+    }
+}
+
+// Clips the window to the pill; `lift` raises the top so a notch pill gets a flat top.
+void UpdateRegion(Slot& s, int w, int h, int radius, int lift) {
+    if (s.radius == radius && s.lift == lift && s.w == w && s.h == h) return;
+    const int diameter = radius * 2;
+    HRGN region = CreateRoundRectRgn(0, -lift, w + 1, h + 1, diameter, diameter);
+    if (region && SetWindowRgn(s.hwnd, region, FALSE) == 0) {
+        DeleteObject(region);  // the system owns it only when SetWindowRgn succeeds
+    }
+    s.radius = radius;
+    s.lift = lift;
+}
+
+void EnsureTopMost(Slot& s, bool wantTopMost) {
+    if (!s.hwnd || s.topMost == wantTopMost) return;
+    // Style-bit edits alone do not move a window between the topmost bands;
+    // SetWindowPos with HWND_TOPMOST / HWND_NOTOPMOST is required.
+    SetWindowPos(s.hwnd, wantTopMost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    s.topMost = wantTopMost;
+}
+
+// Places one backdrop window below `prev`. Only moves it when something changed:
+// per-frame SetWindowPos lags on some Windows 10 builds.
+void PlaceSlot(Slot& s, HWND prev, int x, int y, int w, int h, int radius, int lift,
+               bool wantTopMost) {
+    EnsureTopMost(s, wantTopMost);
+    UpdateRegion(s, w, h, radius, lift);
+    const bool moved = x != s.x || y != s.y || w != s.w || h != s.h;
+    const bool stacked = GetWindow(prev, GW_HWNDNEXT) == s.hwnd;
+    if (moved || !stacked || !s.visible) {
+        UINT flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER;
+        if (stacked) flags |= SWP_NOZORDER;
+        if (!s.visible) flags |= SWP_SHOWWINDOW;
+        SetWindowPos(s.hwnd, prev, x, y, w, h, flags);
+    }
+    s.x = x;
+    s.y = y;
+    s.w = w;
+    s.h = h;
+    s.visible = true;
+}
+
+// Called after every presented frame with the island's screen origin and its pills
+// (client px, including hover scale) with corner radii.
+void Sync(HWND island, POINT origin, const D2D1_RECT_F* rects, const float* radii, int count,
+          bool notch, BackdropMaterial material, const D2D1_COLOR_F& tint, float tintAlpha) {
+    if (material == BackdropMaterial::None || count <= 0 || !island || !IsWindowVisible(island) ||
+        !Available() || Backdrop::ClipUiActiveCached()) {
+        HideAll();
+        return;
+    }
+    count = std::min(count, kMaxPills);
+
+    int state = kAccentEnableBlurBehind;
+    DWORD color = ColorToAccentAbgr(tint, tintAlpha * 0.22f);  // soft wash so plain blur isn't harsh
+    if (material == BackdropMaterial::Acrylic) {
+        state = kAccentEnableAcrylicBlurBehind;
+        color = ColorToAccentAbgr(tint, tintAlpha);
+    }
+
+    // Precompute geometry once so we can early-out when nothing moved.
+    struct Geom {
+        int x, y, w, h, radius, lift;
+        bool valid;
+    } geom[kMaxPills] = {};
+    for (int i = 0; i < count; ++i) {
+        const D2D1_RECT_F& r = rects[i];
+        // Inset 1px so the region's hard edge stays hidden behind the island contour.
+        constexpr int inset = 1;
+        const int x = static_cast<int>(std::lround(origin.x + r.left)) + inset;
+        const int y = static_cast<int>(std::lround(origin.y + r.top)) + (notch ? 0 : inset);
+        const int right = static_cast<int>(std::lround(origin.x + r.right)) - inset;
+        const int bottom = static_cast<int>(std::lround(origin.y + r.bottom)) - inset;
+        const int w = right - x;
+        const int h = bottom - y;
+        if (w < 4 || h < 4) {
+            geom[i].valid = false;
+            continue;
+        }
+        int radius = static_cast<int>(std::lround(radii[i])) - inset;
+        radius = std::clamp(radius, 0, std::min(w, h) / 2);
+        geom[i] = {x, y, w, h, radius, notch ? radius : 0, true};
+    }
+
+    const bool wantTopMost = g_settings.alwaysOnTop;
+    bool unchanged = g_lastSync.island == island && g_lastSync.origin.x == origin.x &&
+                     g_lastSync.origin.y == origin.y && g_lastSync.count == count &&
+                     g_lastSync.material == static_cast<int>(material) &&
+                     g_lastSync.color == color && g_lastSync.state == state &&
+                     g_lastSync.notch == notch;
+    if (unchanged) {
+        for (int i = 0; i < count; ++i) {
+            if (!geom[i].valid) {
+                if (g_slots[i].visible) {
+                    unchanged = false;
+                    break;
+                }
+                continue;
+            }
+            if (g_lastSync.x[i] != geom[i].x || g_lastSync.y[i] != geom[i].y ||
+                g_lastSync.w[i] != geom[i].w || g_lastSync.h[i] != geom[i].h ||
+                g_lastSync.radius[i] != geom[i].radius || g_lastSync.lift[i] != geom[i].lift ||
+                !g_slots[i].visible || g_slots[i].topMost != wantTopMost) {
+                unchanged = false;
+                break;
+            }
+        }
+    }
+    if (unchanged) {
+        // Accent can still need a refresh after a settings tick that didn't move geometry.
+        for (int i = 0; i < count; ++i) {
+            if (geom[i].valid && g_slots[i].hwnd) {
+                ApplyAccent(g_slots[i], state, color);
+            }
+        }
         return;
     }
 
-    const auto setAttribute = Backdrop::Resolve();
-    if (!setAttribute) {
-        return;  // Unsupported build; island stays opaque.
+    HWND prev = island;
+    for (int i = 0; i < count; ++i) {
+        Slot& s = g_slots[i];
+        if (!geom[i].valid) {
+            HideSlot(s);
+            continue;
+        }
+        if (!s.hwnd) {
+            s.hwnd = CreateBackdropWindow(island);
+            s.topMost = wantTopMost;
+            if (!s.hwnd) continue;
+        }
+        ApplyAccent(s, state, color);
+        PlaceSlot(s, prev, geom[i].x, geom[i].y, geom[i].w, geom[i].h, geom[i].radius,
+                  geom[i].lift, wantTopMost);
+        prev = s.hwnd;
     }
+    for (int i = count; i < kMaxPills; ++i) HideSlot(g_slots[i]);
 
-    Backdrop::AccentPolicy policy = {};
-    switch (g_settings.backdropMaterial) {
-        case BackdropMaterial::Blur:
-            policy.state = Backdrop::ACCENT_ENABLE_BLURBEHIND;
-            break;
-        case BackdropMaterial::Acrylic:
-            policy.state = Backdrop::ACCENT_ENABLE_ACRYLICBLURBEHIND;
-            break;
-        case BackdropMaterial::None:
-        default:
-            policy.state = Backdrop::ACCENT_DISABLED;
-            break;
+    g_lastSync.island = island;
+    g_lastSync.origin = origin;
+    g_lastSync.count = count;
+    g_lastSync.material = static_cast<int>(material);
+    g_lastSync.color = color;
+    g_lastSync.state = state;
+    g_lastSync.notch = notch;
+    for (int i = 0; i < kMaxPills; ++i) {
+        if (i < count && geom[i].valid) {
+            g_lastSync.x[i] = geom[i].x;
+            g_lastSync.y[i] = geom[i].y;
+            g_lastSync.w[i] = geom[i].w;
+            g_lastSync.h[i] = geom[i].h;
+            g_lastSync.radius[i] = geom[i].radius;
+            g_lastSync.lift[i] = geom[i].lift;
+        } else {
+            g_lastSync.x[i] = g_lastSync.y[i] = g_lastSync.w[i] = g_lastSync.h[i] = 0;
+            g_lastSync.radius[i] = g_lastSync.lift[i] = 0;
+        }
     }
+}
 
-    // Acrylic needs a tint supplied in the policy itself; the shell mixes this
-    // over the blurred backdrop. Stored ABGR, and the alpha here is the tint
-    // strength rather than the window's opacity.
-    if (policy.state == Backdrop::ACCENT_ENABLE_ACRYLICBLURBEHIND) {
-        const D2D1_COLOR_F tint = g_settings.pillBgColor;
-        const auto channel = [](float v) {
-            return static_cast<DWORD>(Clamp(v, 0.0f, 1.0f) * 255.0f);
-        };
-        const DWORD tintAlpha = channel(g_settings.backdropTint);
-        policy.gradientColor = (tintAlpha << 24) | (channel(tint.b) << 16) |
-                               (channel(tint.g) << 8) | channel(tint.r);
+}  // namespace DwmBackdrop
+
+// The backdrop picks up a material or tint change on the next frame; turning it
+// off hides the DWM windows immediately so the blur does not linger a frame.
+void ApplyBackdropMaterial(HWND) {
+    if (g_settings.backdropMaterial == BackdropMaterial::None) {
+        DwmBackdrop::HideAll();
     }
-
-    Backdrop::CompositionAttributeData data = {};
-    data.attribute = Backdrop::WCA_ACCENT_POLICY;
-    data.data = &policy;
-    data.dataSize = sizeof(policy);
-    setAttribute(hwnd, &data);
+    g_layoutDirty = true;
 }
 
 // Always unregisters before registering so a settings change never leaks the
@@ -3603,10 +3918,12 @@ void PositionOverlayWindow(HWND hwnd, int width, int height) {
 
     x += g_settings.offsetX;
     y += ResolveOffsetY(static_cast<float>(height));
-    SetWindowPos(hwnd, zOrder, x, y, width, height,
-                 SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_SHOWWINDOW);
+    // Yield to the screen-clip overlay.
+    const bool yieldToClipUi = Backdrop::ClipUiActiveCached();
+    SetWindowPos(hwnd, yieldToClipUi ? nullptr : zOrder, x, y, width, height,
+                 SWP_NOACTIVATE | SWP_NOOWNERZORDER |
+                     (yieldToClipUi ? SWP_NOZORDER : SWP_SHOWWINDOW));
 
-    ApplyBackdropRegion(hwnd, width, height);
 }
 
 // Where the layered window's top-left goes for a pill `pillWidth` px wide.
@@ -3681,10 +3998,10 @@ struct PillClientRect {
 };
 PillClientRect g_pillClientRect;
 
-// Blur/acrylic paints across the whole window rect, so it keeps the old
-// "window hugs the pill" behaviour.
-inline bool UsesFixedStage(const Settings& s) {
-    return s.backdropMaterial == BackdropMaterial::None;
+// The island always uses the fixed stage; the backdrop is painted by separate DWM
+// windows (see DwmBackdrop) and does not depend on the window size.
+inline bool UsesFixedStage(const Settings&) {
+    return true;
 }
 
 StageLayout ComputeStageLayout(const Settings& settings, float pillW, float pillH) {
@@ -3755,68 +4072,11 @@ void ApplyOverlayZOrder(HWND hwnd, int width, int height) {
         }
     }
 
-    SetWindowPos(hwnd, zOrder, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_SHOWWINDOW);
-    ApplyBackdropRegion(hwnd, width, height);
-}
-
-// A composition backdrop (#59) is blurred across the window's whole rectangle
-// and is *not* masked by the per-pixel alpha we paint. Left alone that would
-// show a blurred rectangle filling the transparent render padding around the
-// island. Constraining the window to a rounded region confines the blur to the
-// island's own silhouette.
-//
-// The region is cleared again whenever no backdrop is active, because it would
-// otherwise clip the soft drop shadow, which is drawn out in that same padding.
-void ApplyBackdropRegion(HWND hwnd, int windowWidth, int windowHeight) {
-    if (!hwnd) {
-        return;
-    }
-
-    if (g_settings.backdropMaterial == BackdropMaterial::None) {
-        SetWindowRgn(hwnd, nullptr, TRUE);
-        return;
-    }
-
-    const int pillWidth = windowWidth - static_cast<int>(std::round(kRenderPadX * 2.0f));
-    const int pillHeight = windowHeight - static_cast<int>(std::round(kRenderPadY * 2.0f));
-    if (pillWidth <= 1 || pillHeight <= 1) {
-        SetWindowRgn(hwnd, nullptr, TRUE);
-        return;
-    }
-
-    const int left = static_cast<int>(std::round(kRenderPadX));
-    const int top = (g_settings.notchStyle || g_settings.borderMergedMode)
-                        ? 0
-                        : static_cast<int>(std::round(kRenderPadY));
-
-    // The pill bounces a few pixels vertically via the nudge spring, which this
-    // function does not see, so the region is padded to avoid clipping content
-    // mid-animation.
-    constexpr int kNudgeSlack = 10;
-    const int regionTop = std::max(0, top - kNudgeSlack);
-    const int regionBottom = std::min(windowHeight, top + pillHeight + kNudgeSlack);
-
-    int radius;
-    if (g_settings.notchStyle) {
-        radius = static_cast<int>(std::round(16.0f * g_settings.sizeScale));
-    } else if (g_settings.w11Style) {
-        radius = static_cast<int>(std::round(8.0f * g_settings.sizeScale));
-    } else {
-        radius = static_cast<int>(std::round(
-            std::min(pillHeight * 0.5f, 44.0f * g_settings.sizeScale)));
-    }
-    radius = std::max(0, radius);
-
-    // CreateRoundRectRgn takes the full ellipse size, not the corner radius.
-    HRGN region = CreateRoundRectRgn(left, regionTop, left + pillWidth + 1, regionBottom + 1,
-                                     radius * 2, radius * 2);
-    if (region) {
-        // Ownership transfers to the system on success.
-        if (SetWindowRgn(hwnd, region, TRUE) == 0) {
-            DeleteObject(region);
-        }
-    }
+    // Yield to the screen-clip overlay.
+    const bool yieldToClipUi = Backdrop::ClipUiActiveCached();
+    SetWindowPos(hwnd, yieldToClipUi ? nullptr : zOrder, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER |
+                     (yieldToClipUi ? SWP_NOZORDER : SWP_SHOWWINDOW));
 }
 
 // Windows' own shell surfaces are all WS_EX_TOPMOST, and they are *supposed* to
@@ -3862,6 +4122,9 @@ bool IsShellOwnedWindow(HWND hwnd) {
 // surfaces away from Windows.
 void EnsureTopmost(HWND hwnd, const RECT* pillScreenRect = nullptr) {
     if (!g_settings.alwaysOnTop || !IsWindow(hwnd) || !IsWindowVisible(hwnd)) {
+        return;
+    }
+    if (Backdrop::ClipUiActiveCached()) {
         return;
     }
 
@@ -11567,6 +11830,8 @@ class Renderer {
             return false;
         }
 
+        pillCount_ = 0;  // DrawPill records each pill it draws for the backdrop windows
+
         target_->BeginDraw();
         target_->SetTransform(D2D1::Matrix3x2F::Translation(-static_cast<float>(dirty.left),
                                                             -static_cast<float>(dirty.top)));
@@ -11654,8 +11919,10 @@ class Renderer {
             stageValid_ = false;
         }
 
-        if (presented && sizeChanged && settings.backdropMaterial != BackdropMaterial::None) {
-            ApplyBackdropRegion(hwnd_, bitmapWidth_, bitmapHeight_);
+        if (presented) {
+            DwmBackdrop::Sync(hwnd_, stage.origin, pillRects_, pillRadii_, pillCount_,
+                              settings.notchStyle, settings.backdropMaterial, pillBgColor_,
+                              settings.backdropTint);
         }
         return presented;
     }
@@ -12466,6 +12733,11 @@ class Renderer {
         } else if (!settings.w11Style) {
             radius = std::min(radius, 44.0f * settings.sizeScale);
         }
+        if (pillCount_ < DwmBackdrop::kMaxPills) {
+            pillRects_[pillCount_] = rect;
+            pillRadii_[pillCount_] = radius;
+            ++pillCount_;
+        }
         DrawSoftShadow(rect, radius);
 
         DrawPillSurface(rect, radius, activity.kind, settings);
@@ -12556,8 +12828,7 @@ class Renderer {
     // is not available -- but the render padding around the pill leaves room to
     // fake it convincingly and cheaply.
     void DrawSoftShadow(D2D1_RECT_F rect, float radius) {
-        // A backdrop material clips the window to the island's silhouette, so
-        // anything drawn out in the padding would be cut off anyway.
+        // The island sits on top of the backdrop, so a shadow here would darken the blur.
         if (!g_settings.dropShadow || g_settings.backdropMaterial != BackdropMaterial::None) {
             return;
         }
@@ -12802,14 +13073,16 @@ class Renderer {
             FillIslandShape(rect, radius, settings.w11Style, settings.notchStyle, tintBrush_.Get());
         }
 
+        // Blur / acrylic and tint come from the DWM window below (see DwmBackdrop);
+        // only the fill is drawn here.
+
         // User-defined pill background color. The authored alpha is combined
         // with the global pill transparency, so a plain 6-digit hex behaves
         // exactly as before (alpha 1.0) while #RRGGBBAA stays translucent.
         D2D1_COLOR_F bg = pillBgColor_;
         bg.a = Clamp(bg.a * settingsOpacity_, 0.0f, 1.0f);
         if (settings.backdropMaterial != BackdropMaterial::None) {
-            // DWM is blurring what is behind the window; an opaque fill would
-            // hide it entirely, so cap the fill and let the backdrop through.
+            // An opaque fill would hide the backdrop, so cap it.
             bg.a = std::min(bg.a, settings.backdropFillAlpha);
         }
         if (ID2D1SolidColorBrush* fillBrush = AcquireBrush(bg)) {
@@ -20255,6 +20528,11 @@ class Renderer {
     bool stageValid_ = false;
     double lastFullPaint_ = -1e9;
 
+    // Pills drawn this frame, in client px, for the DWM backdrop windows (#59).
+    D2D1_RECT_F pillRects_[DwmBackdrop::kMaxPills] = {};
+    float pillRadii_[DwmBackdrop::kMaxPills] = {};
+    int pillCount_ = 0;
+
     ComPtr<ID2D1Factory> d2dFactory_;
     ComPtr<ID2D1DCRenderTarget> target_;
     ComPtr<IDWriteFactory> dwriteFactory_;
@@ -21582,14 +21860,9 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             ApplyHideShowHotkey();
             return 0;
 
-        case WM_APP_APPLY_BACKDROP: {
+        case WM_APP_APPLY_BACKDROP:
             ApplyBackdropMaterial(hwnd);
-            RECT rc{};
-            if (GetWindowRect(hwnd, &rc)) {
-                ApplyBackdropRegion(hwnd, rc.right - rc.left, rc.bottom - rc.top);
-            }
             return 0;
-        }
 
         case WM_APP_MOUSE_WAKE:
             // No-op payload — its only job is to wake MsgWaitForMultipleObjects
@@ -22483,6 +22756,7 @@ DWORD WINAPI RenderThreadProc(void*) {
                 // Just hid: drop to zero-CPU parking immediately, no
                 // lingering render/animation work this frame.
                 ShowWindow(hwnd, SW_HIDE);
+                DwmBackdrop::HideAll();
                 g_audioCaptureNeeded.store(false, std::memory_order_relaxed);
                 wasManuallyHidden = true;
             }
@@ -23247,6 +23521,11 @@ DWORD WINAPI RenderThreadProc(void*) {
                 const bool isExpanded = isHoverExpanded || pinned || isTransientAlert || (widthSpring.value > 260.0f);
                 renderSettings.pillOpacity = isExpanded ? 0.98f : 0.88f;
             }
+            // No usable backdrop (old Windows / effects off): keep the solid background.
+            if (renderSettings.backdropMaterial != BackdropMaterial::None &&
+                !DwmBackdrop::Available()) {
+                renderSettings.backdropMaterial = BackdropMaterial::None;
+            }
             renderer.Render(snapshot, renderSettings, primary, secondary,
                             widthSpring.value, heightSpring.value, nudgeSpring.value,
                             hover, pinned, now);
@@ -23266,6 +23545,7 @@ DWORD WINAPI RenderThreadProc(void*) {
             wasAutoHiddenParked = true;
             g_autoHiddenParked = true;
             ShowWindow(hwnd, SW_HIDE);
+            DwmBackdrop::HideAll();
             g_audioCaptureNeeded.store(false, std::memory_order_relaxed);
             setHighResTimer(false);
             continue;
@@ -23369,6 +23649,7 @@ DWORD WINAPI RenderThreadProc(void*) {
     setHighResTimer(false);
 
     UnbindVolumeEndpoint();
+    DwmBackdrop::DestroyAll();
     renderer.Shutdown();
     DestroyWindow(hwnd);
     g_hwnd = nullptr;
