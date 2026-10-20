@@ -14,6 +14,22 @@ A smooth, interactive overlay for your desktop, inspired by Apple's Dynamic Isla
   <img src="https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/9fdd6610ff4e48928ecde99362a87f1d43afefbe/previews/Full-preview-v2.png" alt="Dynamic Island surfaces" width="760" style="border-radius: 8px; margin: 10px;"/>
 </p>
 
+### 🎵 Live Lyrics
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/main/previews/lyrics.png" alt="Live Lyrics on Dynamic Island" width="880" style="border-radius: 8px; margin: 10px;"/>
+</p>
+
+### 🪟 Real Blur & Acrylic Backdrop
+
+<p align="center">
+  <video src="https://github.com/devcode90/Dynamic-Island-for-Windows/raw/main/previews/blur.mp4" controls="controls" muted="muted" width="880" style="border-radius: 8px; margin: 10px; max-height: 480px;">
+    <a href="https://github.com/devcode90/Dynamic-Island-for-Windows/raw/main/previews/blur.mp4">
+      <img src="https://raw.githubusercontent.com/devcode90/Dynamic-Island-for-Windows/main/previews/blur-acrylic.png" alt="Dynamic Island Real Blur & Acrylic Backdrop" width="880" style="border-radius: 8px; margin: 10px;"/>
+    </a>
+  </video>
+</p>
+
 ### Dashboards
 
 | Media Player | Calendar | Weather | Game Overlay | Idle View |
