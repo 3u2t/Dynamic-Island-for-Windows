@@ -61,9 +61,9 @@ A smooth, interactive overlay for your desktop, inspired by Apple's Dynamic Isla
 **🚀 New Features (Added in Latest Update):**
 
 - 🎤 **Live Lyrics:** Switch on "Show lyrics on collapsed island" from the right-click menu to see the current line pan across the pill as it is sung.
-- 📖 **Quick Lookup:** Press `Ctrl+Alt+Space` to open a search box right on the island to instantly find definitions or summaries for words and clipboard text.
+- 📖 **Quick Lookup:** Once enabled under Modules, press `Ctrl+Alt+Space` to open a search box right on the island to instantly find definitions or summaries for words and clipboard text.
 - 🔀 **Cross-Source Media Switching:** Smoothly swap between active playback controls of multiple media apps simultaneously without opening the apps.
-- 💾 **Lyrics Cache:** Fast, local, and completely private caching of lyrics (via LRCLIB) to ensure instant loading with a tiny disk footprint.
+- 💾 **Lyrics Cache:** Fast, local caching of lyrics retrieved from LRCLIB (sending title, artist, album, and duration to look up matching tracks) stored in the mod's storage folder with a tiny disk footprint.
 - 📺 **Full-Screen Autohide:** Smart autohide ensures the island stays completely out of your way during full-screen apps, videos, and gaming.
 - 🙈 **Instant Hide/Unhide:** Toggle the island visibility instantly with a customizable shortcut (Default: `Ctrl+Alt+D`). It consumes almost no CPU while hidden!
 - 🕒 **Expandable Hover Clock:** Hover over the island to instantly expand a sleek clock displaying the current time and date.
