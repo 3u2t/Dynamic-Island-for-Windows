@@ -110,8 +110,7 @@ Tweak the mod easily from the **Windhawk settings panel**:
 - **Media Pill Clock:** Optionally show the current time on the left of the collapsed media pill, using the same 12/24-hour and seconds settings as the idle clock.
 - **Volume & Brightness Flyouts:** Slider banners appear on the island when the system volume or your laptop screen brightness changes. Both can be switched off in **Modules & Features**.
 - **Modules & Visibility:** Configure media, dashboards, privacy dots, system flyouts, auto-hide idle behavior, and shortcuts.
-- **Process Inclusion (for Notifications):** To use the notification module, you must add `explorer.exe` to the process inclusion list under the **Advanced** tab of the mod settings in Windhawk, then restart the mod.
-- **Notification Permission (for Notifications):** Windows must also allow apps to read your notifications. Turn on **Settings → Privacy & security → Notifications → "Let apps access your notifications"**. If this is off, Windows denies the listener and no notification will reach the island no matter how the mod is configured. When notifications still don't show, check the mod's log in Windhawk for a "permission not granted" line.
+- **Notification Permission (for Notifications):** Windows must allow apps to read your notifications. Turn on **Settings → Privacy & security → Notifications → "Let apps access your notifications"**. If this is off, Windows denies the listener and no notification will reach the island no matter how the mod is configured. When notifications still don't show, check the mod's log in Windhawk for a "permission not granted" line. Note: notifications from command-line consoles and terminal hosts (PowerShell, cmd.exe, conhost) are filtered out by default to avoid toast spam from terminal scripts and build jobs.
 
 > [!NOTE]
 > **Blur & Acrylic need Windows' Transparency effects.**
